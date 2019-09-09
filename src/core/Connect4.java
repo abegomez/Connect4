@@ -1,4 +1,6 @@
 package core;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
 import ui.Connect4TextConsole;
 
@@ -26,8 +28,6 @@ public class Connect4 {
 	 */
 	public Connect4() {
 		gb = new GameBoard();
-		playerX = new Player('X');
-		playerO = new Player('O');
 		tie = true;
 		play= true;
 	}
@@ -93,8 +93,20 @@ public class Connect4 {
 				return true;
 			return false;
 		}
+		
+		public List<Integer> getValidColumns() {
+			List<Integer> list = new ArrayList<Integer>();
+			for(int i =0; i < getCols(); i++) {
+				if(isValidColumn(i)) {
+					list.add(i);
+				}
+			}
+			return list;
+		}
 	}
-	
+	public GameBoard getGameBoard() {
+		return this.gb;
+	}
 	/**
 	 * Player class
 	 * @see GameBoard
@@ -262,6 +274,7 @@ public class Connect4 {
 	 * adjacent spaces filled with his/her character
 	 */
 	public void start() {	
+		initializePlayers();
 		System.out.println("Welcome to Connect4!\n");
 		Connect4TextConsole.displayBoard(gb);
 		boolean turn = true;
@@ -291,6 +304,20 @@ public class Connect4 {
 			System.out.println("Tie Game!");
 		}
 		in.close();
+	}
+	
+	//TODO validate input
+	public void initializePlayers() {
+		Scanner in = new Scanner(System.in);
+		System.out.println("Would you like to play against another (P)layer or a (C)omputer");
+		String res = in.next();
+		
+		if(res.charAt(0) =='P' ||res.charAt(0) == 'p')
+			playerO = new Player('O');
+		else
+			playerO = new Connect4ComputerPlayer(this, 'O');
+		
+		playerX = new Player('X');
 	}
 
 	
