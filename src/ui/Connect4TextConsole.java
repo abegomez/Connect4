@@ -18,6 +18,8 @@ public class Connect4TextConsole {
 	 * @param gb The board to display
 	 */
 	public static void displayBoard(GameBoard gb) {
+		if(gb == null) 
+			throw new IllegalArgumentException();
 		int rows = gb.getRows();
 		int cols = gb.getCols();
 		for(int row = 0; row < rows; row++) {

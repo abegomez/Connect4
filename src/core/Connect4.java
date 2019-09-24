@@ -2,13 +2,16 @@ package core;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
+
+import ui.Connect4GUI;
 import ui.Connect4TextConsole;
 
 /**
- * A Connect4 Console Game
+ * A Connect4 Console and GUI Game
+ * Option to play against a computer and play on a GUI or Text Console
  * 
  * @author Abraham Gomez
- * @version 1.0
+ * @version 4.0
  * @see ui.Connect4TextConsole
  * @see GameBoard 
  * @see Player
@@ -21,10 +24,19 @@ public class Connect4 {
 	private boolean play;
 	private boolean tie;
 	
+	public interface Connect4Constants {  
+		public static int PLAYER1 = 1; // Indicate player 1  
+		public static int PLAYER2 = 2; // Indicate player 2  
+		public static int PLAYER1_WON = 1; // Indicate player 1 won  
+		public static int PLAYER2_WON = 2; // Indicate player 2 won  
+		public static int DRAW = 3; // Indicate a draw  
+		public static int CONTINUE = 4; // Indicate to continue}
+		public static int VALID = 5;
+	}
 	
 	/** 
 	 * Initializes a new Connect4 object
-	 * Instance variables set to default values and instanciated.
+	 * Instance variables set to default values and instantiated.
 	 */
 	public Connect4() {
 		gb = new GameBoard();
@@ -36,7 +48,7 @@ public class Connect4 {
 	 * Gameboard class
 	 */
 	public class GameBoard {
-		char[][] board;
+		public char[][] board;
 		int rows = 6;
 		int cols = 7;
 
@@ -82,18 +94,56 @@ public class Connect4 {
 			return board[row][col];
 		}
 		
+		
 		/**
 		 * Checks if the column contains an open space
 		 * 
 		 * @param column The column to check
 		 * @return True if column is not filled
 		 */
-		public boolean isValidColumn(int column) {
+		public boolean isValidColumn(int column) throws IllegalArgumentException{
+			if(column < 0 || column >= gb.getCols())
+				throw new IllegalArgumentException();
 			if(gb.board[0][column] == ' ')
 				return true;
 			return false;
 		}
 		
+		/**
+		 * Checks if board is filled up
+		 * @return true if board is full
+		 */
+		public boolean isFull() {
+			for(int i = 0; i<this.cols; i++) {
+				if(gb.getElement(0, i) ==' ')
+					return false;
+			}
+			return true;
+		}
+		
+		/**
+		 * Sets token in gameboard
+		 * 
+		 * @param column column to set, need to -1 for 0-based index
+		 * @param c token to set space to
+		 * @return returns the row the token is set in, -1 if unable to do so
+		 */
+		public int setToken(int column, char c) {
+			for(int i = gb.rows -1; i >=0; i--) {
+				if(gb.board[i][column-1] == ' ') {
+					gb.board[i][column-1] = c;
+					//Connect4TextConsole.displayBoard(gb);
+					return i;
+				}
+			}
+			return -1;
+		}
+		
+		/**
+		 * Helper function for computer player to get list of 
+		 * valid columns
+		 * @return List containing all valid columns
+		 */
 		public List<Integer> getValidColumns() {
 			List<Integer> list = new ArrayList<Integer>();
 			for(int i =0; i < getCols(); i++) {
@@ -104,16 +154,22 @@ public class Connect4 {
 			return list;
 		}
 	}
+	
+	/**
+	 * Returns connect4 gameboard
+	 * @return current gameboard
+	 */
 	public GameBoard getGameBoard() {
 		return this.gb;
 	}
+	
 	/**
 	 * Player class
 	 * @see GameBoard
 	 */
 	public class Player {
 		char token;
-
+		String name;
 		/**
 		 * Initializes a Player object
 		 * 
@@ -121,6 +177,7 @@ public class Connect4 {
 		 */
 		public Player(char c) {
 			this.token = c;
+			name = "Player " + c;
 		}
 
 		/**
@@ -130,6 +187,31 @@ public class Connect4 {
 		 */
 		public char getChar() {
 			return this.token;
+		}
+		
+		/**
+		 * Returns the name of the player
+		 * @return player name
+		 */
+		public String getName() {
+			return this.name;
+		}
+		
+		/**
+		 * Changes the players name to input s
+		 * @param s the name to set player name to
+		 */
+		public void setName(String s) {
+			this.name = s;
+		}
+		
+		/**
+		 * Required because player class is not abstract
+		 * 
+		 * @return 0 for the purpose of testing
+		 */
+		public int takeTurnGUI() {
+			return 0;
 		}
 
 		/**
@@ -142,7 +224,7 @@ public class Connect4 {
 			int input;
 			in = new Scanner(System.in);
 			do{
-				System.out.println("Player " + this.getChar() + " Choose column: 1-7");
+				System.out.println(name + " Choose column: 1-7");
 				System.out.println("[1][2][3][4][5][6][7]");
 				while(!in.hasNextInt()) {
 					System.out.println("Invalid input. Try again!");
@@ -154,12 +236,13 @@ public class Connect4 {
 			} while (input <1 || input > gb.getCols());
 			
 			if( gb.isValidColumn(input-1)) {
-				for(int i = gb.rows -1; i >=0; i--) {
-					if(gb.board[i][input-1] == ' ') {
-						gb.board[i][input-1] = this.token;
-						break;
-					}
-				}
+				gb.setToken(input, this.token);
+//				for(int i = gb.rows -1; i >=0; i--) {
+//					if(gb.board[i][input-1] == ' ') {
+//						gb.board[i][input-1] = this.token;
+//						break;
+//					}
+//				}
 			} else {
 				System.out.println("Column is already full. Try again. \n");
 				this.takeTurn();
@@ -168,6 +251,21 @@ public class Connect4 {
 	}
 	
 	
+	/**
+	 * Returns the x player
+	 * @return playerX
+	 */
+	public Player getPlayerX() {
+		return this.playerX;
+	}
+	
+	/**
+	 * Returns the O player
+	 * @return playerO
+	 */
+	public Player getPlayerO() {
+		return this.playerO;
+	}
 	
 	/** 
 	 * Checks game board for 4 consecutive spaces filled with player's char
@@ -181,7 +279,7 @@ public class Connect4 {
 		char tok = p.getChar();
 		if(checkHorizontal(tok)|| checkVertical(tok) ||
 		   checkDiagLR(tok) || checkDiagRL(tok)) {
-			System.out.println(" Player " + p.getChar() + " won!");
+			System.out.println(" " + p.name + " won!");
 			Connect4TextConsole.displayBoard(gb);
 			return true;
 		}
@@ -274,8 +372,52 @@ public class Connect4 {
 	 * adjacent spaces filled with his/her character
 	 */
 	public void start() {	
-		initializePlayers();
 		System.out.println("Welcome to Connect4!\n");
+		
+		if (isGUISelected()) {
+			playGUI();
+		}else {
+			initializePlayers();
+			playTextConsole();
+		}
+		play = false;	
+	}
+	
+	/**
+	 * Prompts the user to choose between Text console game or GUI version
+	 * 
+	 * @return true if player selects GUI version
+	 */
+	public boolean isGUISelected() {
+		try {
+			Scanner in = new Scanner(System.in);
+			System.out.println("Enter (G) for GUI or (T) for Text Console");
+			while(!in.hasNext("[gGtT]")) {
+				System.out.println("That's not a valid choice");
+				in.next();
+			}
+			
+			String res = in.next();
+			if(res.charAt(0) =='T' ||res.charAt(0) == 't')
+				return false;
+		} catch(Exception e) {
+			e.printStackTrace();
+		}
+			return true;
+	}
+	
+	/**
+	 * Calls the Connect4GUI main method
+	 */
+	public void playGUI() {
+		//Connect4GUI gui = new Connect4GUI();
+		Connect4GUI.main(null);
+	}
+	
+	/**
+	 * Text console game loop
+	 */
+	public void playTextConsole() {
 		Connect4TextConsole.displayBoard(gb);
 		boolean turn = true;
 		Player p = playerX;
@@ -306,23 +448,40 @@ public class Connect4 {
 		in.close();
 	}
 	
-	//TODO validate input
+	/**
+	 * Initializes Players or A player and computer
+	 * 
+	 * @see Player
+	 * @see Connect4ComputerPlayer
+	 */
 	public void initializePlayers() {
-		Scanner in = new Scanner(System.in);
-		System.out.println("Would you like to play against another (P)layer or a (C)omputer");
-		String res = in.next();
-		
-		if(res.charAt(0) =='P' ||res.charAt(0) == 'p')
-			playerO = new Player('O');
-		else
-			playerO = new Connect4ComputerPlayer(this, 'O');
-		
-		playerX = new Player('X');
+		try {
+			Scanner in = new Scanner(System.in);
+			System.out.println("Enter (P) to play against another player or (C) to play against the computer.");
+			while(!in.hasNext("[pPcC]")) {
+				System.out.println("That's not a valid choice."+
+			                       " (P) to play against player or (C) to play against computer");
+				in.next();
+			}
+			
+			String res = in.next();
+			if(res.charAt(0) =='P' ||res.charAt(0) == 'p')
+				playerO = new Player('O');
+			else {
+				System.out.println("\nThank you! Playing against a computer\n");
+				playerO = new Connect4ComputerPlayer(this, 'O');
+			}
+		} catch(Exception e) {
+			e.printStackTrace();
+		} finally {
+			playerX = new Player('X');
+		}
 	}
 
 	
 	/** 
 	 * Main function to start game
+	 * 
 	 * @param args[] not used
 	 */
 	public static void main(String[] args) {
@@ -330,6 +489,5 @@ public class Connect4 {
 		while(game.play) {
 			game.start();
 		}
-		
 	}
 }
