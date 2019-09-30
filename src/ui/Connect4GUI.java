@@ -40,7 +40,7 @@ public class Connect4GUI extends Application {
 	protected boolean isPlayerOpponent;
 	protected Player currPlayer;
 
-	private Cell[][] cells = new Cell[6][7];
+	protected Cell[][] cells = new Cell[6][7];
 	
 	/**
 	 * Entry for JavaFX
@@ -200,6 +200,37 @@ public class Connect4GUI extends Application {
 	     */
 	    public void setToken() {
 	    	token = currPlayer.getChar();
+	    	
+		 	if (token == 'X') {
+		 		Ellipse ellipse = new Ellipse(this.getWidth() / 2,
+				 	    this.getHeight() / 2, this.getWidth() / 2 - 10,
+				 	    this.getHeight() / 2 - 10);
+		 	    ellipse.centerXProperty().bind(this.widthProperty().divide(2));
+		 	    ellipse.centerYProperty().bind(this.heightProperty().divide(2));
+			    ellipse.radiusXProperty().bind(this.widthProperty().divide(2).subtract(10));
+		 	    ellipse.radiusYProperty().bind(this.heightProperty().divide(2).subtract(10));
+			    ellipse.setStroke(Color.RED);
+		 	    ellipse.setFill(Color.RED);
+		 	    ellipse.setStyle("-fx-stroke-width:10px");
+			    getChildren().add(ellipse); // Add the ellipse to the pane
+		 	}
+		 	else if (token == 'O') {
+		 	    Ellipse ellipse = new Ellipse(this.getWidth() / 2,
+		 	    this.getHeight() / 2, this.getWidth() / 2 - 10,
+		 	    this.getHeight() / 2 - 10);
+		 	    ellipse.centerXProperty().bind(this.widthProperty().divide(2));
+		 	    ellipse.centerYProperty().bind(this.heightProperty().divide(2));
+			    ellipse.radiusXProperty().bind(this.widthProperty().divide(2).subtract(10));
+		 	    ellipse.radiusYProperty().bind(this.heightProperty().divide(2).subtract(10));
+			    ellipse.setStroke(Color.YELLOW);
+		 	    ellipse.setFill(Color.YELLOW);
+		 	    ellipse.setStyle("-fx-stroke-width:10px");
+			    getChildren().add(ellipse); // Add the ellipse to the pane
+		 	}
+		 	
+	    }
+	    public void setToken(char otherToken) {
+	    	token = otherToken;
 	    	
 		 	if (token == 'X') {
 		 		Ellipse ellipse = new Ellipse(this.getWidth() / 2,

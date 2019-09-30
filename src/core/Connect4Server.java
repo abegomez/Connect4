@@ -23,8 +23,10 @@ import core.Connect4.Player;
 public class Connect4Server extends Application implements Connect4Constants {
 	private int sessionNo = 1;
 	private int portNo = 8000;
-	private Connect4 connect4;
 
+	/**
+	 * Entry to Server Program
+	 */
 	@Override
 	public void start(Stage primaryStage) {
 		TextArea taLog = new TextArea();
@@ -54,26 +56,36 @@ public class Connect4Server extends Application implements Connect4Constants {
 						taLog.appendText("Player 1's IP address" + player1.getInetAddress().getHostAddress() + '\n');
 					});
 
+					boolean playerGame = new DataInputStream(player1.getInputStream()).readBoolean();
 					// Notify that the player is Player 1
-					new DataOutputStream(player1.getOutputStream()).writeInt(PLAYER1);
+					if (playerGame) {
+						new DataOutputStream(player1.getOutputStream()).writeInt(PLAYER1);
 
-					// Connect to player 2
-					Socket player2 = serverSocket.accept();
+						// Connect to player 2
+						Socket player2 = serverSocket.accept();
 
-					Platform.runLater(() -> {
-						taLog.appendText(new Date() + ": Player 2 joined session " + sessionNo + '\n');
-						taLog.appendText("Player 2's IP address" + player2.getInetAddress().getHostAddress() + '\n');
-					});
+						Platform.runLater(() -> {
+							taLog.appendText(new Date() + ": Player 2 joined session " + sessionNo + '\n');
+							taLog.appendText(
+									"Player 2's IP address" + player2.getInetAddress().getHostAddress() + '\n');
+						});
 
-					// Notify that the player is Player 2
-					new DataOutputStream(player2.getOutputStream()).writeInt(PLAYER2);
+						// Notify that the player is Player 2
+						new DataOutputStream(player2.getOutputStream()).writeInt(PLAYER2);
 
-					// Display this session and increment session number
-					Platform.runLater(
-							() -> taLog.appendText(new Date() + ": Start a thread for session " + sessionNo++ + '\n'));
+						// Display this session and increment session number
+						Platform.runLater(() -> taLog
+								.appendText(new Date() + ": Start a thread for session " + sessionNo++ + '\n'));
 
-					// Launch a new thread for this session of two players
-					new Thread(new HandleASession(player1, player2)).start();
+						boolean player2Game = new DataInputStream(player2.getInputStream()).readBoolean();
+						// Launch a new thread for this session of two players
+						new Thread(new HandleASession(player1, player2)).start();
+					} else {
+						new DataOutputStream(player1.getOutputStream()).writeInt(PLAYER1);
+						taLog.appendText(new Date() + ": Computer joined session " + sessionNo++ + '\n');
+						new Thread(new HandleAComputerSession(player1)).start();
+					}
+
 				}
 			} catch (IOException ex) {
 				ex.printStackTrace();
@@ -81,6 +93,115 @@ public class Connect4Server extends Application implements Connect4Constants {
 		}).start();
 	}
 
+	/**
+	 * Handles a session when a player is playing against a computer
+	 */
+	class HandleAComputerSession implements Runnable, Connect4Constants {
+		private Socket player1;
+		private Socket player2;
+		private Player playerX;
+		private Player playerO;
+		private Connect4 connect4;
+		private GameBoard gb;
+		private int actualRow;
+		private int compCol;
+
+		/**
+		 * Constructor for handling a session against a computer
+		 * 
+		 * @param player1 the player socket
+		 */
+		public HandleAComputerSession(Socket player1) {
+			this.player1 = player1;
+			connect4 = new Connect4();
+			playerX = connect4.new Player('X');
+			playerO = new Connect4ComputerPlayer(connect4, 'O');
+			gb = connect4.getGameBoard();
+		}
+
+		/**
+		 * Starts game logic when a player plays against a computer
+		 */
+		public void run() {
+			try {
+				DataInputStream fromPlayer1 = new DataInputStream(player1.getInputStream());
+				DataOutputStream toPlayer1 = new DataOutputStream(player1.getOutputStream());
+
+				toPlayer1.writeInt(1);
+
+				while (true) {
+					// Receive a move from player 1
+					int row = 0;
+					int column = 0;
+					boolean invalid = true;
+
+					while (invalid) {
+						row = fromPlayer1.readInt();
+						column = fromPlayer1.readInt();
+						if (gb.isValidColumn(column)) {
+							actualRow = gb.setToken(column + 1, playerX.getChar());
+							toPlayer1.writeInt(actualRow);
+							invalid = false;
+						} else {
+							toPlayer1.writeInt(-1);
+						}
+					}
+
+					// Check if Player 1 wins
+					if (connect4.checkWinnerServer(playerX)) {
+						toPlayer1.writeInt(PLAYER1_WON);
+						break; // Break the loop
+					} else if (gb.isFull()) { // Check if all cells are filled
+						toPlayer1.writeInt(DRAW);
+						break;
+					} else {
+						compCol = playerO.takeTurnGUI();
+						actualRow = gb.setToken(compCol + 1, playerO.getChar());
+
+					}
+
+					// Check if Player 2 wins
+					if (connect4.checkWinnerServer(playerO)) {
+						toPlayer1.writeInt(PLAYER2_WON);
+						sendMove(toPlayer1, actualRow, column);
+						break;
+					} else if (gb.isFull()) {
+						toPlayer1.writeInt(DRAW);
+						break;
+					} else {
+						// Notify player 1 to take the turn
+						toPlayer1.writeInt(CONTINUE);
+
+						// Send player 2's selected row and column to player 1
+						sendMove(toPlayer1, actualRow, compCol);
+					}
+//				
+					Connect4TextConsole.displayBoard(gb);
+				}
+
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+
+		}
+
+		/**
+		 * Transmits the data to the computer player output stream
+		 * 
+		 * @param out    The player's output stream
+		 * @param row    The row selected by opponent
+		 * @param column The column selected by opponent
+		 * @throws IOException DataOutputStream exception
+		 */
+		private void sendMove(DataOutputStream out, int row, int column) throws IOException {
+			out.writeInt(row); // Send row index
+			out.writeInt(column); // Send column index
+		}
+	}
+
+	/**
+	 * Class to handle a session between two players
+	 */
 	class HandleASession implements Runnable, Connect4Constants {
 		private Socket player1;
 		private Socket player2;
@@ -88,18 +209,15 @@ public class Connect4Server extends Application implements Connect4Constants {
 		private Player playerO;
 		private Connect4 connect4;
 		private GameBoard gb;
-		// Create and initialize cells
-		private char[][] cells = new char[3][3];
-		private DataInputStream fromPlayer1;
-		private DataOutputStream toPlayer1;
-		private DataInputStream fromPlayer2;
-		private DataOutputStream toPlayer2;
+
 		private int actualRow;
 
-		// Continue to play
-		private boolean continueToPlay = true;
-
-		/** Construct a thread */
+		
+		/**
+		 * Constructor for HandleASession
+		 * @param player1 Player 1 socket
+		 * @param player2 Player 2 socket
+		 */
 		public HandleASession(Socket player1, Socket player2) {
 			this.player1 = player1;
 			this.player2 = player2;
@@ -114,10 +232,10 @@ public class Connect4Server extends Application implements Connect4Constants {
 		public void run() {
 			try {
 				// Create data input and output streams
-				fromPlayer1 = new DataInputStream(player1.getInputStream());
-				toPlayer1 = new DataOutputStream(player1.getOutputStream());
-				fromPlayer2 = new DataInputStream(player2.getInputStream());
-				toPlayer2 = new DataOutputStream(player2.getOutputStream());
+				DataInputStream fromPlayer1 = new DataInputStream(player1.getInputStream());
+				DataOutputStream toPlayer1 = new DataOutputStream(player1.getOutputStream());
+				DataInputStream fromPlayer2 = new DataInputStream(player2.getInputStream());
+				DataOutputStream toPlayer2 = new DataOutputStream(player2.getOutputStream());
 
 				// Write anything to notify player 1 to start
 				// This is just to let player 1 know to start
@@ -127,14 +245,23 @@ public class Connect4Server extends Application implements Connect4Constants {
 				// the game status to the players
 				while (true) {
 					// Receive a move from player 1
-					int row = fromPlayer1.readInt();
-					int column = fromPlayer1.readInt();
-					if (gb.isValidColumn(column)) {
-						actualRow = gb.setToken(column+1, playerX.getChar());
+					int row = 0;
+					int column = 0;
+					boolean invalid = true;
+					while (invalid) {
+						row = fromPlayer1.readInt();
+						column = fromPlayer1.readInt();
+						if (gb.isValidColumn(column)) {
+							actualRow = gb.setToken(column + 1, playerX.getChar());
+							toPlayer1.writeInt(actualRow);
+							invalid = false;
+						} else {
+							toPlayer1.writeInt(-1);
+						}
 					}
 
 					// Check if Player 1 wins
-					if (connect4.checkWinner(playerX)) {
+					if (connect4.checkWinnerServer(playerX)) {
 						toPlayer1.writeInt(PLAYER1_WON);
 						toPlayer2.writeInt(PLAYER1_WON);
 						sendMove(toPlayer2, actualRow, column);
@@ -151,17 +278,24 @@ public class Connect4Server extends Application implements Connect4Constants {
 						// Send player 1's selected row and column to player 2
 						sendMove(toPlayer2, actualRow, column);
 					}
-					
+
+					invalid = true;
 					// Receive a move from Player 2
-					row = fromPlayer2.readInt();
-					column = fromPlayer2.readInt();
-					
-					if (gb.isValidColumn(column)) {
-						actualRow = gb.setToken(column+1, playerO.getChar());
+					while (invalid) {
+						row = fromPlayer2.readInt();
+						column = fromPlayer2.readInt();
+
+						if (gb.isValidColumn(column)) {
+							actualRow = gb.setToken(column + 1, playerO.getChar());
+							toPlayer2.writeInt(actualRow);
+							invalid = false;
+						} else {
+							toPlayer2.writeInt(-1);
+						}
 					}
 
 					// Check if Player 2 wins
-					if (connect4.checkWinner(playerO)) {
+					if (connect4.checkWinnerServer(playerO)) {
 						toPlayer1.writeInt(PLAYER2_WON);
 						toPlayer2.writeInt(PLAYER2_WON);
 						sendMove(toPlayer1, actualRow, column);
@@ -174,28 +308,37 @@ public class Connect4Server extends Application implements Connect4Constants {
 					} else {
 						// Notify player 1 to take the turn
 						toPlayer1.writeInt(CONTINUE);
-	
+
 						// Send player 2's selected row and column to player 1
 						sendMove(toPlayer1, actualRow, column);
 					}
-				
-					Connect4TextConsole.displayBoard(gb);
+//				
 				}
 			} catch (IOException ex) {
 				ex.printStackTrace();
 			}
 		}
 
-		/** Send the move to other player */
+		
+		/**
+		 * Sends row and column to server 
+		 * @param out DataOutputStream to send data
+		 * @param row the selected row
+		 * @param column the selected column
+		 * @throws IOException exception if error transmitting data
+		 */
 		private void sendMove(DataOutputStream out, int row, int column) throws IOException {
 			out.writeInt(row); // Send row index
 			out.writeInt(column); // Send column index
 		}
-
 	}
 
+	/**
+	 * Used when running from eclipse
+	 * 
+	 * @param args string arguments
+	 */
 	public static void main(String[] args) {
-		// TODO Auto-generated method stub
 		launch(args);
 	}
 
